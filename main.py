@@ -1,6 +1,7 @@
 import cv2
 from Tracker import Tracker
 from Blob import Blob
+from TuioServer import TuioServer
 
 # GLOBALS IMAGE PROCESS
 _BlurHighPass:int = 15 # first opening & closing (the higher the MORE of the image remains)
@@ -57,43 +58,48 @@ cap = cv2.VideoCapture("mt_camera_raw.AVI")
 # TRACKER
 tracker = Tracker(_maxDistance)
 
+# TUIO SERVER
+tuio_server = TuioServer()
 
 # IF VIDEO FOUND
 if cap:
     # take first frame as background
-    ret, frame = cap.read()  # returns two values!
+    ret, frame = cap.read()
     background = frame
 
     # WHILE THERE ARE NEW FRAMES
     while cap.isOpened():
-        ret, frame = cap.read()  # returns two values!
+        ret, frame = cap.read()
 
-        # IF LAST FRAME REACHED STOP HERE
-        if (ret == False):
+        # IF LAST FRAME REACHED, STOP HERE
+        if not ret:
             break
 
         foundBlobs = processImage(background, frame)
 
-        if (len(foundBlobs) > 0):
+        if len(foundBlobs) > 0:g
             trackedTouches = tracker.track(foundBlobs)
-            
-            # Puttext
-            for i in trackedTouches:
-                xpos = i.positionx
-                ypos = i.positiony
-                cv2.putText(frame, "ID: " + str(i.id), (xpos, ypos), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0,255,0), 1, cv2.LINE_AA)
-                ypos+=10
-                cv2.putText(frame, "X: " + str(i.positionx), (xpos, ypos), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0,255,0), 1, cv2.LINE_AA)
-                ypos+=10
-                cv2.putText(frame, "Y: " + str(i.positiony), (xpos, ypos), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0,255,0), 1, cv2.LINE_AA)
+
+            # Transmit the tracked blobs via TUIO
+            for touch in trackedTouches:
+                tuio_server.sendBlob(touch)
+
+            # Puttext and other operations
+            for touch in trackedTouches:
+                xpos = touch.positionx
+                ypos = touch.positiony
+                cv2.putText(frame, "ID: " + str(touch.id), (xpos, ypos), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 0), 1, cv2.LINE_AA)
+                ypos += 10
+                cv2.putText(frame, "X: " + str(touch.positionx), (xpos, ypos), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 0), 1, cv2.LINE_AA)
+                ypos += 10
+                cv2.putText(frame, "Y: " + str(touch.positiony), (xpos, ypos), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 0), 1, cv2.LINE_AA)
 
         cv2.imshow("INPUT", frame)
 
-        # CUSTOM CLOSE ON ESC
-        match cv2.waitKey(0):
-            case 27:
-                raise SystemExit
-            case 0:
-                continue
+        # Custom close on ESC
+        key = cv2.waitKey(1)
+        if key == 27:
+            break
 
-
+cap.release()
+cv2.destroyAllWindows()
