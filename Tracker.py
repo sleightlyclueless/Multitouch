@@ -1,6 +1,6 @@
+# Tracker functionality to track cv blobs and interpret them as touches
 from Blob import Blob
 from Touch import Touch
-
 
 class Tracker:
     def __init__(self, maxdistance:int):
@@ -15,7 +15,7 @@ class Tracker:
             self.findNearestNeighbour(currTouch, index, _blobs)
             index+=1
 
-        # just add remaining touches if there are new ones
+        # for each blob that is left, create a new touch 
         for i in _blobs:
             self.touches.append(Touch(self.idcounter, i.positionx, i.positiony))
             self.idcounter += 1
@@ -23,19 +23,23 @@ class Tracker:
         return self.touches
 
 
+    # compare blobs of current frame with touches of last frame and update touches for their nearest neighbour
+    # 1 - if a blob is close to a touch, then the touch gets updated for next iteration and blob removed
+    # 2 - if a blob is not close to a touch, then the touch gets removed but blob stays
+    # Result: All Touches that are continued are updated and Blobs that were too far stay and get interpreted as new Touches above 
     def findNearestNeighbour(self, currTouch:Touch, index:int, _blobs:list):
         closestBlob:Blob = None
         closestDistance:int = None
 
-        currTouchPos:Touch = [currTouch.positionx, currTouch.positiony]
-
-        #search all blobs for the nearest neighbour
+        # search all blobs for the nearest neighbour
         for currBlob in _blobs:
-            currBlobPos:Touch = [currBlob.positionx, currBlob.positiony]
             
-            #calculate the distance (with pos values)
-            dis:int = int(((currTouchPos[0] - currBlobPos[0]) ** 2 + (currTouchPos[1] - currBlobPos[1]) ** 2) ** 0.5)
+            # calculate the distance in px (with pos values)
+            dis:int = int(((currTouch.positionx - currBlob.positionx) ** 2 + (currTouch.positiony - currBlob.positiony) ** 2) ** 0.5)
+
+            # if the smallest distance found is smaller than the max distance, then its a neighbour and that touch gets updated with the new position
             if (dis < self.maxdistance):
+                # if there is already a closest blob, check if the new one is closer
                 if (closestBlob != None):
                     if (dis < closestDistance):
                         closestBlob = currBlob
@@ -44,9 +48,11 @@ class Tracker:
                     closestBlob = currBlob
                     closestDistance = dis
 
-        # remove prev touch if no closest found and hence its gone
+
+        # if there is no closest blob, then the touch is removed
         if (closestBlob == None):
             self.touches.remove(currTouch)
+        # if there is a closest blob, then the touch gets updated with the new position
         else:
             self.touches[index].positionx = closestBlob.positionx
             self.touches[index].positiony = closestBlob.positiony
