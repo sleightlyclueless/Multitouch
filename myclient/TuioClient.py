@@ -8,6 +8,8 @@ from TuioGestures import TuioGestures
 
 from dollarpy import Point
 
+# Shapes from http://depts.washington.edu/acelab/proj/dollar/index.html
+
 class MyListener(TuioListener):
     def __init__(self):
         self.cursor_paths = {}
@@ -17,17 +19,27 @@ class MyListener(TuioListener):
         self.cursor_paths[cursor.session_id] = []  # Initialize an empty path for the cursor
 
     def update_tuio_cursor(self, cursor: Cursor) -> None:
-        self.cursor_paths[cursor.session_id].append(cursor.position)  # Append the cursor position to its path
+        last_position = self.cursor_paths[cursor.session_id][-1] if self.cursor_paths[cursor.session_id] else None
+        if cursor.position != last_position:
+            self.cursor_paths[cursor.session_id].append(cursor.position)  # Append the cursor position to its path
+
+    def remove_tuio_cursor(self, cursor: Cursor) -> None:
         self.recognize_gesture(cursor)  # Recognize gesture for the cursor
 
     def recognize_gesture(self, cursor: Cursor) -> None:
         path = self.cursor_paths[cursor.session_id]  # Get the path for the cursor
         if len(path) > 1:
-            points = [Point(p[0], p[1]) for p in path if len(p) >= 2 and all(isinstance(coord, (int, float)) and coord >= 0 for coord in p[:2])]
-            if points:
+            points = []
+            for p in path:
+                if len(p) >= 2 and p[0] >= 0 and p[1] >= 0:
+                    point = Point(p[0], p[1])
+                    points.append(point)
+
+            if len(points) > 1:
                 gesture = self.gestures.recognize_gesture(points)  # Pass the points to TuioGestures
-                if gesture and gesture[0] != None and gesture[0] != "":
+                if gesture and gesture[0] != None and gesture[0] != "" and gesture[1] > 0.4:
                     print("Recognized gesture", gesture)
+
 
 
 def draw_number(screen, number: int, x: int, y: int):
