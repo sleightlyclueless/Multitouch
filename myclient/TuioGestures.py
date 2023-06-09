@@ -1,20 +1,18 @@
 class GestureTemplate:
-    def __init__(self, name, path):
-        self.Name = name
-        self.Path = path
+    def __init__(self, name: str, path: list()):
+        self.Name: str = name
+        self.Path: list() = path
+
 
 class Point2D:
-    def __init__(self, x:float, y:float):
-        self.x = x
-        self.y = y
-    
-    def __str__(self):
-        return "x: {0}, y: {1}".format(self.x, self.y)
+    def __init__(self, x: float, y: float):
+        self.x: float = x
+        self.y: float = y
+
 
 class Path2D:
-    def __init__(self, points:list):
-        self.Points = points
-    pass
+    def __init__(self, points: list()):
+        self.Points: list() = points
 
 
 class TuioGestures:
@@ -368,7 +366,6 @@ class TuioGestures:
                 Point2D(180, 125),
             ],
         ),
-        
         GestureTemplate(
             "LeftCurlyBrace",
             [

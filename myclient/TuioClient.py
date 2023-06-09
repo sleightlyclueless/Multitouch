@@ -5,13 +5,10 @@ import pygame.color
 from pythontuio import TuioClient, Cursor, TuioListener
 from threading import Thread
 
-from GeometricRecognizer import GeometricRecognizer
+from GeometricRecognizer import GeometricRecognizer # Custom recognizer
 from TuioGestures import Point2D
 
-from dollarpy import Point
-
 # Shapes from http://depts.washington.edu/acelab/proj/dollar/index.html
-
 class MyListener(TuioListener):
     def __init__(self):
         self.cursor_paths = {}
@@ -27,11 +24,13 @@ class MyListener(TuioListener):
             self.cursor_paths[cursor.session_id].append(Point2D(cursor.position[0], cursor.position[1]))  # Append the cursor position to its path
 
     def remove_tuio_cursor(self, cursor: Cursor) -> None:
+        path = self.cursor_paths[cursor.session_id]  # Get the path for the cursor
         
-        result = self.recognizer.recognize(self.cursor_paths[cursor.session_id])  # Recognize gesture for the cursor
-        print("Recognized gesture: " + result.Name + " with a score of " + str(result.Score))
-
-
+        if len(path) > 1:
+            result = self.recognizer.recognize(path)  # Recognize gesture for the cursor
+            print("Recognized gesture: " + result.Name + " with a score of " + str(result.Score))
+        
+        
 
 
 def draw_number(screen, number: int, x: int, y: int):
@@ -41,14 +40,14 @@ def draw_number(screen, number: int, x: int, y: int):
     text_rect.center = (x, y)  # Set the position of the text
     screen.blit(text_surface, text_rect)  # Draw the text onto the screen
 
-def draw_cursors(screen, cursors: list, window_size):
+def draw_cursors(screen, cursors: list, window_size: tuple):
     screen.fill((0, 0, 0, 255))
     for curs in cursors:
         x, y = curs.position[0] * window_size[0], curs.position[1] * window_size[1]
         pygame.draw.circle(screen, (255, 0, 255, 255), (int(x), int(y)), 10)
         draw_number(screen, curs.session_id, x, y)
 
-        path = listener.cursor_paths[curs.session_id]  # Get the path for the cursor
+        path:list() = listener.cursor_paths[curs.session_id]  # Get the path for the cursor
         if len(path) > 1:
             scaled_path = [(p.x * window_size[0], p.y * window_size[1]) for p in path]
             pygame.draw.lines(screen, (255, 255, 255), False, scaled_path, 2)

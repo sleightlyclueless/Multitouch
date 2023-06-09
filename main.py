@@ -13,7 +13,7 @@ _ContourThreshold:int = 8  # pixel clots above this size will be circled
 _maxDistance:int = 25
 
 # P1 processing + P2 Bloblist initializing
-def processImage(background, frame):
+def process_image(background, frame):
     # get first diffImage between blank background and current pixel set
     diffImage = cv2.absdiff(background, frame)
     # blur the image to further thin out background of hand
@@ -73,7 +73,7 @@ if cap:
         if (ret == False):
             break
 
-        foundBlobs = processImage(background, frame)
+        foundBlobs:list() = process_image(background, frame)
 
         if (len(foundBlobs) > 0):
             trackedTouches = tracker.track(foundBlobs)
@@ -90,7 +90,7 @@ if cap:
 
             # TUIO SERVER - update the touches of the server with the touches from the tracker and send the bundle to the default TUIO client
             MyServer:MyTuioServer = MyTuioServer()
-            MyServer.updateTouches(trackedTouches, cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            MyServer.update_touches(trackedTouches, cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
         cv2.imshow("INPUT", frame)
 
