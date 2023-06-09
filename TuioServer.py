@@ -9,23 +9,18 @@ class MyTuioServer:
     
 
     # updateTouches: update the touches of the server with the touches from the tracker and send the bundle to the default TUIO client
-    def updateTouches(self, touchesList:list(), screenw:int, screenh:int):
-        touches:Touch
-
-        # check all touches for the current frame (already interpreted as Touch by Tracker.py)
+    def updateTouches(self, touchesList, screenw, screenh):
         for touches in touchesList:
-            if touches.id not in self.trackedIds: # not tracked yet: add to list
+            if touches.id not in self.trackedIds:
                 curs = Cursor(touches.id)
-                curs.position = (touches.positionx/screenw, touches.positiony/screenh) # normalize between 0 and 1
+                curs.position = (touches.positionx / screenw, touches.positiony / screenh)
                 self.server.cursors.append(curs)
                 self.trackedIds.append(touches.id)
-                
-            else: # already tracked: update position
-                curs:Cursor
+            else:
                 for curs in self.server.cursors:
                     if curs.session_id == touches.id:
-                        curs.position = (touches.positionx/screenw, touches.positiony/screenh)
+                        curs.position = (touches.positionx / screenw, touches.positiony / screenh)
+                        curs.path.append(curs.position)  # Append the cursor position to its path
 
-
-        # send bundle to tuio client (done every frame and removing all cursors that are not tracked anymore by TUIO client)
+        # send bundle to TUIO client (done every frame and removing all cursors that are not tracked anymore by TUIO client)
         self.server.send_bundle()
