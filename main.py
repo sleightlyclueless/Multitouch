@@ -1,7 +1,7 @@
 import cv2
 from Blob import Blob
 from Tracker import Tracker
-from MyTuioServer import MyTuioServer
+from TuioServer import MyTuioServer
 
 # GLOBALS IMAGE PROCESS
 _BlurHighPass:int = 15 # first opening & closing (the higher the MORE of the image remains)
