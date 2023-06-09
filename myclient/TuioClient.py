@@ -4,7 +4,9 @@ import pygame.color
 
 from pythontuio import TuioClient, Cursor, TuioListener
 from threading import Thread
-from TuioGestures import TuioGestures
+
+from GeometricRecognizer import GeometricRecognizer
+from TuioGestures import Point2D
 
 from dollarpy import Point
 
@@ -13,7 +15,8 @@ from dollarpy import Point
 class MyListener(TuioListener):
     def __init__(self):
         self.cursor_paths = {}
-        self.gestures = TuioGestures()
+        self.recognizer = GeometricRecognizer()
+        self.recognizer.load_templates()
 
     def add_tuio_cursor(self, cursor: Cursor) -> None:
         self.cursor_paths[cursor.session_id] = []  # Initialize an empty path for the cursor
@@ -21,24 +24,13 @@ class MyListener(TuioListener):
     def update_tuio_cursor(self, cursor: Cursor) -> None:
         last_position = self.cursor_paths[cursor.session_id][-1] if self.cursor_paths[cursor.session_id] else None
         if cursor.position != last_position:
-            self.cursor_paths[cursor.session_id].append(cursor.position)  # Append the cursor position to its path
+            self.cursor_paths[cursor.session_id].append(Point2D(cursor.position[0], cursor.position[1]))  # Append the cursor position to its path
 
     def remove_tuio_cursor(self, cursor: Cursor) -> None:
-        self.recognize_gesture(cursor)  # Recognize gesture for the cursor
+        
+        result = self.recognizer.recognize(self.cursor_paths[cursor.session_id])  # Recognize gesture for the cursor
+        print("Recognized gesture: " + result.Name + " with a score of " + str(result.Score))
 
-    def recognize_gesture(self, cursor: Cursor) -> None:
-        path = self.cursor_paths[cursor.session_id]  # Get the path for the cursor
-        if len(path) > 1:
-            points = []
-            for p in path:
-                if len(p) >= 2 and p[0] >= 0 and p[1] >= 0:
-                    point = Point(p[0], p[1])
-                    points.append(point)
-
-            if len(points) > 1:
-                gesture = self.gestures.recognize_gesture(points)  # Pass the points to TuioGestures
-                if gesture and gesture[0] != None and gesture[0] != "" and gesture[1] > 0.4:
-                    print("Recognized gesture", gesture)
 
 
 
@@ -58,7 +50,7 @@ def draw_cursors(screen, cursors: list, window_size):
 
         path = listener.cursor_paths[curs.session_id]  # Get the path for the cursor
         if len(path) > 1:
-            scaled_path = [(p[0] * window_size[0], p[1] * window_size[1]) for p in path]
+            scaled_path = [(p.x * window_size[0], p.y * window_size[1]) for p in path]
             pygame.draw.lines(screen, (255, 255, 255), False, scaled_path, 2)
 
 
