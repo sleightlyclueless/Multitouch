@@ -8,12 +8,18 @@ from threading import Thread
 from GeometricRecognizer import GeometricRecognizer # Custom recognizer
 from TuioGestures import Point2D
 
+import GameMovingBlock
+import random
+
 # Shapes from http://depts.washington.edu/acelab/proj/dollar/index.html
 class MyListener(TuioListener):
     def __init__(self):
         self.cursor_paths = {}
         self.recognizer = GeometricRecognizer()
         self.recognizer.load_templates()
+        # GAME
+        self.blockList = list()
+        self.score = 0
 
     def add_tuio_cursor(self, cursor: Cursor) -> None:
         self.cursor_paths[cursor.session_id] = []  # Initialize an empty path for the cursor
@@ -30,57 +36,112 @@ class MyListener(TuioListener):
             result = self.recognizer.recognize(path)  # Recognize gesture for the cursor
             print("Recognized gesture: " + result.Name + " with a score of " + str(result.Score))
         
+        newlist = []
+        for block in self.blockList:
+            #print("comparing " + str(block.type.value) + " to " + result.Name + "")
+            if block.type.value != result.Name:
+                newlist.append(block)
+            else:
+                print("Removed block")
+                self.score += 100
+        self.blockList = newlist
+        
         
 
 
-def draw_number(screen, number: int, x: int, y: int):
-    font = pygame.font.Font(None, 25)  # Choose the desired font and size
+# TUIO CLient
+client = TuioClient(("localhost",3333))
+t = Thread(target=client.start)
+listener = MyListener()
+client.add_listener(listener)
+
+t.start()
+
+# PYGAME setup
+pygame.init()
+WINDOW_SIZE = (800,600)
+screen = pygame.display.set_mode(WINDOW_SIZE)
+pygame.display.set_caption("sam-k0's TUIO Client")
+clock = pygame.time.Clock()
+
+# Pygame helper functions
+
+def draw_number(number, x, y):
+    font = pygame.font.Font(None, 36)  # Choose the desired font and size
     text_surface = font.render(str(number), True, (255, 255, 255))  # Render the text
     text_rect = text_surface.get_rect()
     text_rect.center = (x, y)  # Set the position of the text
     screen.blit(text_surface, text_rect)  # Draw the text onto the screen
 
-def draw_cursors(screen, cursors: list, window_size: tuple):
-    screen.fill((0, 0, 0, 255))
+def draw_cursors(cursors:list()):
+    #screen.fill((0,0,0,255))
+    curs:Cursor
     for curs in cursors:
-        x, y = curs.position[0] * window_size[0], curs.position[1] * window_size[1]
-        pygame.draw.circle(screen, (255, 0, 255, 255), (int(x), int(y)), 10)
-        draw_number(screen, curs.session_id, x, y)
+        x,y = curs.position[0]*WINDOW_SIZE[0], curs.position[1]*WINDOW_SIZE[1]
+        pygame.draw.circle(screen, (255,0,255,255), (int(x),int(y)), 10)
+        draw_number(curs.session_id, x,y)
 
         path:list() = listener.cursor_paths[curs.session_id]  # Get the path for the cursor
         if len(path) > 1:
-            scaled_path = [(p.x * window_size[0], p.y * window_size[1]) for p in path]
+            scaled_path = [(p.x * WINDOW_SIZE[0], p.y * WINDOW_SIZE[1]) for p in path]
             pygame.draw.lines(screen, (255, 255, 255), False, scaled_path, 2)
 
-
-client = TuioClient(("localhost", 3333))
-listener = MyListener()
-client.add_listener(listener)
-
-t = Thread(target=client.start)
-t.start()
-
-pygame.init()
-WINDOW_SIZE = (800, 600)
-screen = pygame.display.set_mode(WINDOW_SIZE)
-pygame.display.set_caption("TUIO Client")
-
 def main():
-    running = True
-    while running:
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                running = False
-            elif event.type == KEYDOWN:
-                if event.key == K_ESCAPE:
-                    running = False
+    dorun = True
 
+    SPAWNCOOLDOWN = 60
+    spawncooldown = SPAWNCOOLDOWN
+
+    while dorun:
+        for event in pygame.event.get():
+            if event.type ==QUIT:
+                dorun = False
+        
+        #spawn blocks
+        spawncooldown -= 1
+        
+        if(spawncooldown <= 0):
+            rands = random.randint(1,3)
+            shape = GameMovingBlock.ShapeType.CHECKMARK
+            if(rands == 1):
+                shape = GameMovingBlock.ShapeType.CHECKMARK
+            elif(rands == 2):
+                shape = GameMovingBlock.ShapeType.CIRCLE
+            elif(rands == 3):
+                shape = GameMovingBlock.ShapeType.DELETE
+
+            randx = random.randint(0,WINDOW_SIZE[0]-50)
+            
+
+            listener.blockList.append(GameMovingBlock.MovingBlock(randx,0,50,50,(255,0,0,255),1,shape, screen))
+            spawncooldown = SPAWNCOOLDOWN
+
+
+        #update game objects
+        for block in listener.blockList:
+            block.update()
+
+        #draw the screen
+        screen.fill((0,0,0,255))
+
+        #draw the game objects
+        for block in listener.blockList:
+            block.draw()
+            if(block.rect.y > WINDOW_SIZE[1]):
+                dorun = False
+                print("Game Over")
+
+        #draw the cursors
         mycurs = client.cursors
-        draw_cursors(screen, mycurs, WINDOW_SIZE)
+        draw_cursors(mycurs)
+
+        #draw the score
+        draw_number("Score: "+str(listener.score), WINDOW_SIZE[0]/2, 50)
 
         pygame.display.flip()
-        pygame.event.pump()  # Allow Pygame to handle events and update the TuioClient
+        pygame.event.pump()
 
+        clock.tick(60)
     pygame.quit()
 
 if __name__ == '__main__':
