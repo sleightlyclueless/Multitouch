@@ -8,6 +8,7 @@ class ShapeType(Enum):
     DELETE = "Delete"
     CIRCLE = "Circle"
     CHECKMARK = "Check"
+    TRIANGLE = "Triangle"
 
 
 
@@ -28,6 +29,8 @@ class MovingBlock(GameObject.GameObject):
             self.imgname = "checkmark.png"
         elif self.type == ShapeType.DELETE:
             self.imgname = "delete.png"
+        elif self.type == ShapeType.TRIANGLE:
+            self.imgname = "triangle.png"
 
         self.sprite = pygame.transform.scale(pygame.image.load(os.getcwd() + os.sep+"\mytuioclient\sprites"+os.sep+self.imgname), (self.rect.width, self.rect.height))
 

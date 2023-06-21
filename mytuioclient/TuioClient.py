@@ -36,13 +36,11 @@ class MyListener(TuioListener):
             result = self.recognizer.recognize(path)  # Recognize gesture for the cursor
             print("Recognized gesture: " + result.Name + " with a score of " + str(result.Score))
         
-        newlist = []
+        newlist = []    # check blocks and gesture recognition for next gameframe
         for block in self.blockList:
-            #print("comparing " + str(block.type.value) + " to " + result.Name + "")
             if block.type.value != result.Name:
                 newlist.append(block)
             else:
-                print("Removed block")
                 self.score += 100
         self.blockList = newlist
         
@@ -74,7 +72,6 @@ def draw_number(number, x, y):
     screen.blit(text_surface, text_rect)  # Draw the text onto the screen
 
 def draw_cursors(cursors:list()):
-    #screen.fill((0,0,0,255))
     curs:Cursor
     for curs in cursors:
         x,y = curs.position[0]*WINDOW_SIZE[0], curs.position[1]*WINDOW_SIZE[1]
@@ -96,12 +93,15 @@ def main():
         for event in pygame.event.get():
             if event.type ==QUIT:
                 dorun = False
+            elif event.type == KEYDOWN:
+                if event.key == K_ESCAPE:
+                    dorun = False
         
         #spawn blocks
         spawncooldown -= 1
         
         if(spawncooldown <= 0):
-            rands = random.randint(1,3)
+            rands = random.randint(1,4)
             shape = GameMovingBlock.ShapeType.CHECKMARK
             if(rands == 1):
                 shape = GameMovingBlock.ShapeType.CHECKMARK
@@ -109,6 +109,8 @@ def main():
                 shape = GameMovingBlock.ShapeType.CIRCLE
             elif(rands == 3):
                 shape = GameMovingBlock.ShapeType.DELETE
+            elif(rands == 4):
+                shape = GameMovingBlock.ShapeType.TRIANGLE
 
             randx = random.randint(0,WINDOW_SIZE[0]-50)
             
