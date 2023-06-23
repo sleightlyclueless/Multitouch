@@ -31,43 +31,45 @@ class MyListener(TuioListener):
         self.cursor_paths[cursor.session_id] = []  # Initialize an empty path for the cursor
 
     def update_tuio_cursor(self, cursor: Cursor) -> None:
-        last_position = self.cursor_paths[cursor.session_id][-1] if self.cursor_paths[cursor.session_id] else None
-        if cursor.position != last_position:
-            self.cursor_paths[cursor.session_id].append(Point2D(cursor.position[0], cursor.position[1]))  # Append the cursor position to its path
+        cursor_path = self.cursor_paths.get(cursor.session_id)  # Get the path for the cursor
+        if cursor_path is not None:
+            last_position = cursor_path[-1] if cursor_path else None
+            if cursor.position != last_position:
+                cursor_path.append(Point2D(cursor.position[0], cursor.position[1]))  # Append the cursor position to its path
 
-        if self.game_over:
-            print("Game Over - checking zoom gesture")
-            cursor_path = self.cursor_paths[cursor.session_id]
-            next_cursor_path = self.cursor_paths.get(cursor.session_id + 1)
-            if cursor_path is not None and next_cursor_path is not None and len(next_cursor_path) > 0:
-                print("Cursor path length: " + str(len(cursor_path)) + " Next cursor path length: " + str(len(next_cursor_path)))
-                current_distance = hypot(cursor_path[0].x - next_cursor_path[-1].x, cursor_path[0].y - next_cursor_path[-1].y)
-                
-                if self.last_zoom_distance != 0:
-                    if current_distance < self.last_zoom_distance:
-                        print("Zoom-in gesture")
-                        self.zoom_factor *= 1.1  # Increase the zoom factor for zooming in
-                    else:
-                        print("Zoom-out gesture")
-                        self.zoom_factor *= 0.9  # Decrease the zoom factor for zooming out
+            # Zoom in an out on the game over image
+            if self.game_over:
+                print("Game Over - checking zoom gesture")
+                next_cursor_path = self.cursor_paths.get(cursor.session_id + 1)
+                if cursor_path is not None and next_cursor_path is not None and len(next_cursor_path) > 0:
+                    current_distance = hypot(cursor_path[0].x - next_cursor_path[-1].x, cursor_path[0].y - next_cursor_path[-1].y)
+                    
+                    if self.last_zoom_distance != 0:
+                        if current_distance < self.last_zoom_distance:
+                            self.zoom_factor *= 1.1  # Increase the zoom factor for zooming in
+                        else:
+                            self.zoom_factor *= 0.9  # Decrease the zoom factor for zooming out
 
-                self.last_zoom_distance = current_distance
+                    self.last_zoom_distance = current_distance
 
     def remove_tuio_cursor(self, cursor: Cursor) -> None:
-        path = self.cursor_paths[cursor.session_id]  # Get the path for the cursor
+        if cursor.session_id in self.cursor_paths:
+            path = self.cursor_paths[cursor.session_id]  # Get the path for the cursor
 
-        if len(path) > 1:
-            result = self.recognizer.recognize(path)  # Recognize gesture for the cursor
-            print("Recognized gesture: " + result.Name + " with a score of " + str(result.Score))
+            if len(path) > 1:
+                result = self.recognizer.recognize(path)  # Recognize gesture for the cursorpath
+                print("Recognized gesture: " + result.Name + " with a score of " + str(result.Score))
 
-        if not self.game_over:
-            newlist = []  # check blocks and gesture recognition for next game frame
-            for block in self.blockList:
-                if block.type.value != result.Name:
-                    newlist.append(block)
-                else:
-                    self.score += 100
-            self.blockList = newlist
+            if not self.game_over:
+                newlist = []  # check blocks and gesture recognition for next game frame
+                for block in self.blockList:
+                    if block.type.value != result.Name:
+                        newlist.append(block)
+                    else:
+                        self.score += 100
+                self.blockList = newlist
+            else:
+                self.cursor_paths = {}  # Reset the cursor paths if one is removed to avoid zoom gesture clashes
 
 
 # TUIO Client
@@ -105,19 +107,20 @@ def draw_cursors(cursors: list):
         x, y = curs.position[0] * WINDOW_SIZE[0], curs.position[1] * WINDOW_SIZE[1]
         pygame.draw.circle(screen, (255, 0, 255, 255), (int(x), int(y)), 10)
         draw_number(curs.session_id, x, y)
-
-        path = listener.cursor_paths[curs.session_id]  # Get the path for the cursor
-        if len(path) > 1:
-            scaled_path = [(p.x * WINDOW_SIZE[0], p.y * WINDOW_SIZE[1]) for p in path]
-            pygame.draw.lines(screen, (255, 255, 255), False, scaled_path, 2)
+        
+        if curs.session_id in listener.cursor_paths:
+            path = listener.cursor_paths[curs.session_id]  # Get the path for the cursor
+            if len(path) > 1:
+                scaled_path = [(p.x * WINDOW_SIZE[0], p.y * WINDOW_SIZE[1]) for p in path]
+                pygame.draw.lines(screen, (255, 255, 255), False, scaled_path, 2)
 
 
 def game():
-    # draw the screen
+    # draw the screen for the new frame
     screen.fill((0, 0, 0, 255))
+
     # spawn blocks
     listener.spawntime -= 1
-
     if listener.spawntime <= 0:
         rands = random.randint(1, 4)
         shape = GameMovingBlock.ShapeType.CHECKMARK
@@ -134,6 +137,7 @@ def game():
 
         listener.blockList.append(GameMovingBlock.MovingBlock(randx, 0, 50, 50, (255, 0, 0, 255), 1, shape, screen))
         listener.spawntime = listener.spawncooldown
+
 
     # update game objects
     for block in listener.blockList:
@@ -155,6 +159,7 @@ def main():
     dorun = True
 
     while dorun:
+        # custom exit handling on esc
         for event in pygame.event.get():
             if event.type == QUIT:
                 dorun = False
@@ -162,13 +167,16 @@ def main():
                 if event.key == K_ESCAPE:
                     dorun = False
 
+
         # game
         if not listener.game_over:
-            game()
+            game()        
+        # game over image for zooming
         else:
             zoomed_image = pygame.transform.scale(game_over_image, (int(game_over_image_rect.width * listener.zoom_factor), int(game_over_image_rect.height * listener.zoom_factor)))
             zoomed_image_rect = zoomed_image.get_rect(center=(WINDOW_SIZE[0] / 2, WINDOW_SIZE[1] / 2))
             screen.blit(zoomed_image, zoomed_image_rect)
+
 
         # draw the cursors
         mycurs = client.cursors
