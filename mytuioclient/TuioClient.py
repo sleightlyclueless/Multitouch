@@ -39,7 +39,7 @@ class MyListener(TuioListener):
 
             # Zoom in an out on the game over image
             if self.game_over:
-                print("Game Over - checking zoom gesture")
+                screen.fill((0, 0, 0, 255))
                 next_cursor_path = self.cursor_paths.get(cursor.session_id + 1)
                 if cursor_path is not None and next_cursor_path is not None and len(next_cursor_path) > 0:
                     current_distance = hypot(cursor_path[0].x - next_cursor_path[-1].x, cursor_path[0].y - next_cursor_path[-1].y)
