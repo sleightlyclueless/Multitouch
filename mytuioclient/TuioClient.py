@@ -7,6 +7,7 @@ from GeometricRecognizer import GeometricRecognizer  # Custom recognizer
 from TuioGestures import Point2D
 
 import GameMovingBlock
+import GameOverRect
 import random
 import os
 
@@ -22,6 +23,7 @@ class MyListener(TuioListener):
         self.game_over = False
         self.spawncooldown = 60
         self.spawntime = 60
+        self.gameOverRect = None
 
         # Zoom
         self.last_zoom_distance = 0
@@ -85,12 +87,6 @@ WINDOW_SIZE = (800, 600)
 screen = pygame.display.set_mode(WINDOW_SIZE)
 pygame.display.set_caption("TUIO Client")
 clock = pygame.time.Clock()
-gamerunning = True
-
-game_over_image = game_over_image = pygame.image.load(os.getcwd() + os.sep+"\mytuioclient\sprites"+os.sep+"game_over.png").convert_alpha()
-game_over_image_rect = game_over_image.get_rect(center=(WINDOW_SIZE[0] / 2, WINDOW_SIZE[1] / 2))
-zoomed_image = game_over_image.copy()
-zoomed_image_rect = zoomed_image.get_rect(center=(WINDOW_SIZE[0] / 2, WINDOW_SIZE[1] / 2))
 
 
 # Pygame helper functions
@@ -173,9 +169,25 @@ def main():
             game()        
         # game over image for zooming
         else:
-            zoomed_image = pygame.transform.scale(game_over_image, (int(game_over_image_rect.width * listener.zoom_factor), int(game_over_image_rect.height * listener.zoom_factor)))
-            zoomed_image_rect = zoomed_image.get_rect(center=(WINDOW_SIZE[0] / 2, WINDOW_SIZE[1] / 2))
-            screen.blit(zoomed_image, zoomed_image_rect)
+            listener.gameOverRect = GameOverRect.GameOverRect(0,0,WINDOW_SIZE[0], WINDOW_SIZE[1],screen)
+            listener.gameOverRect.draw(listener.zoom_factor)
+
+            font = pygame.font.Font(None, 36)  # Choose the desired font and size
+            text_surface = font.render("Game Over - Zoom To Restart", True, (255, 255, 255))  # Render the text
+            text_rect = text_surface.get_rect()
+            text_rect.center = (WINDOW_SIZE[0]/2, WINDOW_SIZE[1]/2)  # Set the position of the text
+            screen.blit(text_surface, text_rect)  # Draw the text onto the screen
+
+            if(listener.gameOverRect.drawn_rect_width > WINDOW_SIZE[0]): # zoomed and start new game
+                print("New game")
+                listener.score = 0
+                listener.game_over = False
+                listener.spawncooldown = 60
+                listener.spawntime = 60
+                listener.last_zoom_distance = 0
+                listener.zoom_factor = 1.0
+                listener.gameOverRect = None
+                listener.blockList = []
 
 
         # draw the cursors
