@@ -19,21 +19,23 @@ class MyListener(TuioListener):
         self.recognizer.load_templates()
         # GAME
         self.blockList = list()
-        self.score = 0
-        self.game_over = False
-        self.spawncooldown = 60
-        self.spawntime = 60
+        self.score:int = 0
+        self.game_over:bool = False
+        self.spawncooldown:int = 60
+        self.spawntime:int = 60
         self.gameOverRect = None
+        self.clocktime:int = 60
+        self.handlegameover:bool = False
 
         # Zoom
-        self.last_zoom_distance = 0
-        self.zoom_factor = 1.0
+        self.last_zoom_distance:float = 0
+        self.zoom_factor:float = 1.0
 
     def add_tuio_cursor(self, cursor: Cursor) -> None:
         self.cursor_paths[cursor.session_id] = []  # Initialize an empty path for the cursor
 
     def update_tuio_cursor(self, cursor: Cursor) -> None:
-        cursor_path = self.cursor_paths.get(cursor.session_id)  # Get the path for the cursor
+        cursor_path:list = self.cursor_paths.get(cursor.session_id)  # Get the path for the cursor
         if cursor_path is not None:
             last_position = cursor_path[-1] if cursor_path else None
             if cursor.position != last_position:
@@ -41,8 +43,9 @@ class MyListener(TuioListener):
 
             # Zoom in an out on the game over image
             if self.game_over:
-                screen.fill((0, 0, 0, 255))
-                next_cursor_path = self.cursor_paths.get(cursor.session_id + 1)
+                self.spawncooldown = 60
+                self.clocktime = 60
+                next_cursor_path:list = self.cursor_paths.get(cursor.session_id + 1)
                 if cursor_path is not None and next_cursor_path is not None and len(next_cursor_path) > 0:
                     current_distance = hypot(cursor_path[0].x - next_cursor_path[-1].x, cursor_path[0].y - next_cursor_path[-1].y)
                     
@@ -58,20 +61,28 @@ class MyListener(TuioListener):
         if cursor.session_id in self.cursor_paths:
             path = self.cursor_paths[cursor.session_id]  # Get the path for the cursor
 
+            result = None
             if len(path) > 1:
                 result = self.recognizer.recognize(path)  # Recognize gesture for the cursorpath
-                print("Recognized gesture: " + result.Name + " with a score of " + str(result.Score))
+                if (result.Score > 0.75 and result.Name != "Unknown"):
+                    print("Recognized gesture: " + result.Name + " with a score of " + str(result.Score))
+                else:
+                    result = None
+                    
 
-            if not self.game_over:
+            if not self.game_over and result:
                 newlist = []  # check blocks and gesture recognition for next game frame
                 for block in self.blockList:
                     if block.type.value != result.Name:
                         newlist.append(block)
                     else:
                         self.score += 100
+                        self.spawncooldown *= 0.99
+                        self.clocktime += 1
                 self.blockList = newlist
             else:
-                self.cursor_paths = {}  # Reset the cursor paths if one is removed to avoid zoom gesture clashes
+                if (self.handlegameover):
+                    self.cursor_paths = {}  # Reset the cursor paths if one is removed to avoid zoom gesture clashes
 
 
 # TUIO Client
@@ -112,9 +123,6 @@ def draw_cursors(cursors: list):
 
 
 def game():
-    # draw the screen for the new frame
-    screen.fill((0, 0, 0, 255))
-
     # spawn blocks
     listener.spawntime -= 1
     if listener.spawntime <= 0:
@@ -146,8 +154,6 @@ def game():
             listener.game_over = True
             return
 
-    # draw the score
-    draw_number("Score: " + str(listener.score), WINDOW_SIZE[0] / 2, 50)
     listener.game_over = False
 
 
@@ -163,32 +169,37 @@ def main():
                 if event.key == K_ESCAPE:
                     dorun = False
 
+        # draw the screen for the new frame
+        screen.fill((0, 0, 0, 255))
 
         # game
         if not listener.game_over:
             game()        
         # game over image for zooming
         else:
-            listener.gameOverRect = GameOverRect.GameOverRect(0,0,WINDOW_SIZE[0], WINDOW_SIZE[1],screen)
-            listener.gameOverRect.draw(listener.zoom_factor)
+            if listener.handlegameover:
+                listener.gameOverRect = GameOverRect.GameOverRect(0,0,WINDOW_SIZE[0], WINDOW_SIZE[1],screen)
+                listener.gameOverRect.draw(listener.zoom_factor)
 
-            font = pygame.font.Font(None, 36)  # Choose the desired font and size
-            text_surface = font.render("Game Over - Zoom To Restart", True, (255, 255, 255))  # Render the text
-            text_rect = text_surface.get_rect()
-            text_rect.center = (WINDOW_SIZE[0]/2, WINDOW_SIZE[1]/2)  # Set the position of the text
-            screen.blit(text_surface, text_rect)  # Draw the text onto the screen
+                font = pygame.font.Font(None, 36)  # Choose the desired font and size
+                text_surface = font.render("Game Over - Zoom To Restart", True, (255, 255, 255))  # Render the text
+                text_rect = text_surface.get_rect()
+                text_rect.center = (WINDOW_SIZE[0]/2, WINDOW_SIZE[1]/2)  # Set the position of the text
+                screen.blit(text_surface, text_rect)  # Draw the text onto the screen
 
-            if(listener.gameOverRect.drawn_rect_width > WINDOW_SIZE[0]): # zoomed and start new game
-                print("New game")
-                listener.score = 0
-                listener.game_over = False
-                listener.spawncooldown = 60
-                listener.spawntime = 60
-                listener.last_zoom_distance = 0
-                listener.zoom_factor = 1.0
-                listener.gameOverRect = None
-                listener.blockList = []
+                if(listener.gameOverRect.drawn_rect_width > WINDOW_SIZE[0]): # zoomed and start new game
+                    print("New game")
+                    listener.score = 0
+                    listener.game_over = False
+                    listener.spawncooldown = 60
+                    listener.spawntime = 60
+                    listener.last_zoom_distance = 0
+                    listener.zoom_factor = 1.0
+                    listener.gameOverRect = None
+                    listener.blockList = []
 
+            # draw the score
+            draw_number("Score: " + str(listener.score), WINDOW_SIZE[0] / 2, 50)
 
         # draw the cursors
         mycurs = client.cursors
@@ -197,7 +208,7 @@ def main():
         pygame.display.flip()
         pygame.event.pump()
 
-        clock.tick(60)
+        clock.tick(listener.clocktime)
     pygame.quit()
 
 
